@@ -66,6 +66,9 @@ def get_model(args):
     elif args.model == 'efficientnetb3':
         from .efficientnet import efficientnet_b3
         net = efficientnet_b3(num_classes=args.num_classes)
+    elif args.model == 'ConvGRU':
+        from .CNNGRU import CNNGRU 
+        net= CNNGRU(num_classes=args.num_classes)
     else:
         raise NotImplementedError
     return net
