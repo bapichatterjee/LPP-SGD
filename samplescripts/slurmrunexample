@@ -38,6 +38,6 @@ $PYTHON $PROGRAM  --data-dir $DATADIR  --imagenet-dir $IMAGENETDIR \
 --training-type LPPSGD  --prepassmepochs 6 \
 --bs_multiple 1 --test_bs_multiple 1 --epochs 90 --averaging_freq 8 \
 --warm_up_epochs 5 --dist-url tcp://$MASTER:23456  \
---numnodes $SLURM_JOB_NUM_NODES --storeresults
+--numnodes 2 --storeresults
 
 cd ..
