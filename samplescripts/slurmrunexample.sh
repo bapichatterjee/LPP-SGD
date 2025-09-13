@@ -15,29 +15,32 @@
 #SBATCH --time=20:00:00         # maximum wall time allocated for the job (max 24h for the gpu partition)
 #SBATCH --job-name=my_test        # job name (default is the name of this file)
 
-# ml fosscuda/2019a #Load the modules for mpirun, etc. 
+# ml fosscuda/2019a #Load the modules for mpirun, etc.
 
 PYTHON=~/miniconda3/bin/python
-PROGRAM=~/directory-master/LPP-SGD/main.py  #Assuming that the program is unzipped in the /home/$USER folder
+PROGRAM=~/directory-master/LPP-SGD/main.py #Assuming that the program is unzipped in the /home/$USER folder
 DATADIR=~/directory-master/LPP-SGD/data
-IMAGENETDIR=~/ILSVRC
-MASTER=`/bin/hostname -s`
+MASTER=$(/bin/hostname -s)
 
 mkdir -p test_mnist_Slurm
 cd test_mnist_Slurm
 
-
+# Print job information
+echo "Running on nodes: $SLURM_JOB_NODELIST"
+echo "Number of nodes: $SLURM_JOB_NUM_NODES"
+echo "Job ID: $SLURM_JOB_ID"
+echo "Starting job at: $(date)"
 srun \
-$PYTHON $PROGRAM  --data-dir $DATADIR  --imagenet-dir $IMAGENETDIR \
---dataset mnist --num-classes 10 --momentum 0.9 --model small \
---cuda --train_processing_bs 32 --test_processing_bs 32 --lr 0.125 \
---baseline_lr 0.0125 --weight-decay 0.00005 --seed 42 --pm \
---nesterov --workers 8 --num-threads 8 --test-freq 1 --partition \
---num-processes 4 --pre_post_epochs 45 \
---scheduler-type cosine \
---training-type LPPSGD  --prepassmepochs 6 \
---bs_multiple 1 --test_bs_multiple 1 --epochs 90 --averaging_freq 8 \
---warm_up_epochs 5 --dist-url tcp://$MASTER:23456  \
---numnodes 2 --storeresults
+	$PYTHON $PROGRAM --data-dir $DATADIR \
+	--dataset mnist --num-classes 10 --momentum 0.9 --model small \
+	--cuda --train_processing_bs 128 --test_processing_bs 128 --lr 0.4 \
+	--baseline_lr 0.1 --weight-decay 0.0005 --seed 0 --pm \
+	--nesterov --workers 8 --num-threads 8 --test-freq 1 --partition \
+	--scheduler-type mstep --lrmilestone 30 60 80 \
+	--training-type MBSGD --numnodes $SLURM_JOB_NUM_NODES \
+	--bs_multiple 1 --test_bs_multiple 1 --epochs 90 \
+	--warm_up_epochs 5 --dist-url tcp://$HOSTNAME:23456 --storeresults
 
+# Change the current directory to the parent directory, one level up from the current location
+# This command is often used when the script needs to operate from the parent directory's context
 cd ..

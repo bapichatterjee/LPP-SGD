@@ -1,4 +1,4 @@
-#*
+# *
 # @file Different utility functions
 # Copyright (c) Zhewei Yao, Amir Gholami
 # All rights reserved.
@@ -16,7 +16,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with PyHessian.  If not, see <http://www.gnu.org/licenses/>.
-#*
+# *
 
 from __future__ import print_function
 
@@ -40,42 +40,31 @@ from pyhessian import hessian
 from models import get_model
 
 # Settings
-parser = argparse.ArgumentParser(description='PyTorch Example')
+parser = argparse.ArgumentParser(description="PyTorch Example")
 parser.add_argument(
-    '--mini-hessian-batch-size',
+    "--mini-hessian-batch-size",
     type=int,
     default=200,
-    help='input batch size for mini-hessian batch (default: 200)')
-parser.add_argument('--hessian-batch-size',
-                    type=int,
-                    default=200,
-                    help='input batch size for hessian (default: 200)')
-parser.add_argument('--seed',
-                    type=int,
-                    default=1,
-                    help='random seed (default: 1)')
-parser.add_argument('--batch-norm',
-                    action='store_false',
-                    help='do we need batch norm or not')
-parser.add_argument('--residual',
-                    action='store_false',
-                    help='do we need residual connect or not')
+    help="input batch size for mini-hessian batch (default: 200)",
+)
+parser.add_argument(
+    "--hessian-batch-size",
+    type=int,
+    default=200,
+    help="input batch size for hessian (default: 200)",
+)
+parser.add_argument("--seed", type=int, default=1, help="random seed (default: 1)")
+parser.add_argument(
+    "--batch-norm", action="store_false", help="do we need batch norm or not"
+)
+parser.add_argument(
+    "--residual", action="store_false", help="do we need residual connect or not"
+)
 
-parser.add_argument('--cuda',
-                    action='store_false',
-                    help='do we use gpu or not')
-parser.add_argument('--resume',
-                    type=str,
-                    default='',
-                    help='get the checkpoint')
-parser.add_argument('--model',
-                    type=str,
-                    default='res20',
-                    help='get the model')
-parser.add_argument('--dataset',
-                    type=str,
-                    default='cifar10',
-                    help='get the model')
+parser.add_argument("--cuda", action="store_false", help="do we use gpu or not")
+parser.add_argument("--resume", type=str, default="", help="get the checkpoint")
+parser.add_argument("--model", type=str, default="res20", help="get the model")
+parser.add_argument("--dataset", type=str, default="cifar10", help="get the model")
 
 args = parser.parse_args()
 # set random seed to reproduce the work
@@ -87,14 +76,16 @@ for arg in vars(args):
     print(arg, getattr(args, arg))
 
 # get dataset
-train_loader, test_loader = getData(name='cifar10_without_dataaugmentation',
-                                    train_bs=args.mini_hessian_batch_size,
-                                    test_bs=1)
+train_loader, test_loader = getData(
+    name="cifar10_without_dataaugmentation",
+    train_bs=args.mini_hessian_batch_size,
+    test_bs=1,
+)
 ##############
 # Get the hessian data
 ##############
-assert (args.hessian_batch_size % args.mini_hessian_batch_size == 0)
-assert (50000 % args.hessian_batch_size == 0)
+assert args.hessian_batch_size % args.mini_hessian_batch_size == 0
+assert 50000 % args.hessian_batch_size == 0
 batch_num = args.hessian_batch_size // args.mini_hessian_batch_size
 
 if batch_num == 1:
@@ -123,10 +114,10 @@ criterion = nn.CrossEntropyLoss()  # label loss
 ###################
 # Get model checkpoint, get saving folder
 ###################
-if args.resume == '':
+if args.resume == "":
     raise Exception("please choose the trained model")
 saveddictionary = torch.load(args.resume)
-model.load_state_dict(saveddictionary['m']) #
+model.load_state_dict(saveddictionary["m"])  #
 
 ######################################################
 # Begin the computation
@@ -135,25 +126,20 @@ model.load_state_dict(saveddictionary['m']) #
 # turn model to eval mode
 model.eval()
 if batch_num == 1:
-    hessian_comp = hessian(model,
-                           criterion,
-                           data=hessian_dataloader,
-                           cuda=args.cuda)
+    hessian_comp = hessian(model, criterion, data=hessian_dataloader, cuda=args.cuda)
 else:
-    hessian_comp = hessian(model,
-                           criterion,
-                           dataloader=hessian_dataloader,
-                           cuda=args.cuda)
+    hessian_comp = hessian(
+        model, criterion, dataloader=hessian_dataloader, cuda=args.cuda
+    )
 
-print(
-    '********** finish data loading and begin Hessian computation **********')
+print("********** finish data loading and begin Hessian computation **********")
 
 top_eigenvalues, _ = hessian_comp.eigenvalues()
 trace = hessian_comp.trace()
 density_eigen, density_weight = hessian_comp.density()
 
-print('\n***Top Eigenvalues: ', top_eigenvalues)
-print('\n***Trace: ', np.mean(trace))
+print("\n***Top Eigenvalues: ", top_eigenvalues)
+print("\n***Trace: ", np.mean(trace))
 
 get_esd_plot(density_eigen, density_weight)
 

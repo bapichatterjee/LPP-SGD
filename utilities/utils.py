@@ -6,6 +6,7 @@ import time
 import torch
 import sys
 import torch.distributed as dist
+
 # from collections import defaultdict
 
 
@@ -22,18 +23,18 @@ class bar(object):
         cur_len = int(self.total_bar_length * current / self.total)
         rest_len = int(self.total_bar_length - cur_len) - 1
 
-        sys.stdout.write('[{:d}/{:d}'.format(current + 1, self.total))
+        sys.stdout.write("[{:d}/{:d}".format(current + 1, self.total))
         for i in range(cur_len):
-            sys.stdout.write('-')
-        sys.stdout.write('>')
+            sys.stdout.write("-")
+        sys.stdout.write(">")
         for i in range(rest_len):
-            sys.stdout.write('.')
-        sys.stdout.write('@{:.3f} Sec]'.format(cur_time))
+            sys.stdout.write(".")
+        sys.stdout.write("@{:.3f} Sec]".format(cur_time))
         sys.stdout.write(msg)
         if current < self.total - 1:
-            sys.stdout.write('\r')
+            sys.stdout.write("\r")
         else:
-            sys.stdout.write('\n')
+            sys.stdout.write("\n")
         sys.stdout.flush()
 
 
@@ -87,36 +88,41 @@ def accuracy(output, target):
 
 
 def get_current_lr(optimizer):
-    if hasattr(optimizer, 'param_groups'):
+    if hasattr(optimizer, "param_groups"):
         for param_group in optimizer.param_groups:
-            return param_group['lr']
+            return param_group["lr"]
     else:
         return optimizer.lr
 
 
 def set_current_lr(optimizer, lr):
-    if hasattr(optimizer, 'param_groups'):
+    if hasattr(optimizer, "param_groups"):
         for param_group in optimizer.param_groups:
-            param_group['lr'] = lr
+            param_group["lr"] = lr
     else:
         optimizer.lr = lr
 
 
 def result_save(results, args):
     result_dict = {(i): r for i, r in enumerate(results)}
-    with open(args.results_dir + "/results.json", 'w') as outfile:
+    with open(args.results_dir + "/results.json", "w") as outfile:
         json.dump(result_dict, outfile)
-    with open(args.results_dir + "/args.json", 'w') as outfile:
+    with open(args.results_dir + "/args.json", "w") as outfile:
         json.dump(args.__dict__, outfile)
 
 
 def assign_groups(args):
     args.commsize = len(args.gpus)
-    args.num_workers = args.commsize - 1  #commsize here is the number of GPUs
+    args.num_workers = args.commsize - 1  # commsize here is the number of GPUs
     args.workers_per_process = int(args.num_workers / args.num_processes)
     if args.workers_per_process < 1:
-        print("Not enough workers! ", args.commsize, args.num_workers,
-              args.workers_per_process, args.num_processes)
+        print(
+            "Not enough workers! ",
+            args.commsize,
+            args.num_workers,
+            args.workers_per_process,
+            args.num_processes,
+        )
         exit(1)
     args.working_nodes = 1 + args.workers_per_process * args.num_processes
     args.workforce = (args.workers_per_process + 1) * args.num_processes
@@ -135,13 +141,7 @@ def assign_groups(args):
             allocated_gpus += 1
             distranks += 1
         for r, s, g in zip(my_group, sampling_ranks, gpus):
-            groups.update(
-                {str(r): {
-                     'g': g,
-                     'm': i,
-                     's': s,
-                     'sd': args.seed + i
-                 }})
+            groups.update({str(r): {"g": g, "m": i, "s": s, "sd": args.seed + i}})
         if my_group not in group_lists:
             group_lists.append(my_group)
 
@@ -163,18 +163,22 @@ class MultiStepLR(object):
 
     def step(self, epoch):
         if epoch < self.warm_up_epochs:
-            lr = self.target_lr * 1 / self.factor * (
-                epoch * (self.factor - 1) / self.warm_up_epochs + 1)
+            lr = (
+                self.target_lr
+                * 1
+                / self.factor
+                * (epoch * (self.factor - 1) / self.warm_up_epochs + 1)
+            )
             set_current_lr(self.optimizer, lr)
         elif epoch >= self.warm_up_epochs and epoch < self.milestones[0]:
             set_current_lr(self.optimizer, self.target_lr)
-        elif self.milestones_travelled < len(
-                self.milestones) and epoch >= self.milestones[
-                    self.milestones_travelled]:
+        elif (
+            self.milestones_travelled < len(self.milestones)
+            and epoch >= self.milestones[self.milestones_travelled]
+        ):
             print("Dampening LR at ", epoch)
             self.milestones_travelled += 1
-            set_current_lr(self.optimizer,
-                           get_current_lr(self.optimizer) * self.gamma)
+            set_current_lr(self.optimizer, get_current_lr(self.optimizer) * self.gamma)
 
 
 class CosineAnnealingLR(object):
@@ -189,17 +193,28 @@ class CosineAnnealingLR(object):
         self.factor = self.base_lr / self.init_lr
         self.warm_up_epochs = args.warm_up_epochs
         if self.warm_up_epochs > 0:
-            assert self.factor >= 1, "The target LR {:.3f} should be >= baseline_lr {:.2f}!".format(
-                self.base_lr, self.init_lr)
+            assert (
+                self.factor >= 1
+            ), "The target LR {:.3f} should be >= baseline_lr {:.2f}!".format(
+                self.base_lr, self.init_lr
+            )
 
     def step(self, epoch):
         if epoch < self.warm_up_epochs:
-            lr = self.base_lr * 1 / self.factor * (
-                epoch * (self.factor - 1) / self.warm_up_epochs + 1)
+            lr = (
+                self.base_lr
+                * 1
+                / self.factor
+                * (epoch * (self.factor - 1) / self.warm_up_epochs + 1)
+            )
             set_current_lr(self.optimizer, lr)
         else:
-            lr = self.eta_min + (self.base_lr - self.eta_min) * (
-                1 + math.cos(math.pi * (epoch - self.T_i) / self.T_max)) / 2
+            lr = (
+                self.eta_min
+                + (self.base_lr - self.eta_min)
+                * (1 + math.cos(math.pi * (epoch - self.T_i) / self.T_max))
+                / 2
+            )
             set_current_lr(self.optimizer, lr)
 
 
@@ -237,26 +252,23 @@ def save_model(model, rightnow, snapdir, epoch, isbest, savedict=True):
         snap = model.state_dict()
     else:
         snap = [m.data for m in model.parameters()]
-    torch.save({'m': snap, 't': (rightnow), 'ep': epoch}, snapdir + "/snap" + str(epoch) + ".pt")
+    torch.save(
+        {"m": snap, "t": (rightnow), "ep": epoch},
+        snapdir + "/snap" + str(epoch) + ".pt",
+    )
     # if isbest:
     #     shutil.copyfile(snapdir + "/snap.pt", snapdir + "/bestsnap.pt")
 
 
-def test_epoch(net,
-               args,
-               start,
-               testloader,
-               criterion,
-               best_acc,
-               test_results,
-               epoch,
-               rank=0):
+def test_epoch(
+    net, args, start, testloader, criterion, best_acc, test_results, epoch, rank=0
+):
     loaderlength = len(testloader)
     b = bar(loaderlength, 30)
-    losses = LocalMetric('Loss')
-    top1 = LocalMetric('Acc@1')
+    losses = LocalMetric("Loss")
+    top1 = LocalMetric("Acc@1")
     for batch_idx, (inputs, targets) in enumerate(testloader):
-        inputs, targets = inputs.to('cuda'), targets.to('cuda')
+        inputs, targets = inputs.to("cuda"), targets.to("cuda")
         with torch.no_grad():
             net.eval()
             outputs = net(inputs)
@@ -266,18 +278,23 @@ def test_epoch(net,
         losses.update(loss, target_batch_size)
         top1.update(acc, target_batch_size)
         rightnow = time.perf_counter() - start
-        banner_string = 'PID: {:d},CommRank: {:d},Rank: {:d}| TstEp: {:.2f} | Loss: {:.3f} | Acc: {:.3f}% ({:.0f}/{:.0f})'.format(
-            os.getpid(), args.commrank, rank, epoch, losses.avg,
-            top1.avg * 100, top1.sum, top1.count)
+        banner_string = "PID: {:d},CommRank: {:d},Rank: {:d}| TstEp: {:.2f} | Loss: {:.3f} | Acc: {:.3f}% ({:.0f}/{:.0f})".format(
+            os.getpid(),
+            args.commrank,
+            rank,
+            epoch,
+            losses.avg,
+            top1.avg * 100,
+            top1.sum,
+            top1.count,
+        )
         b.progress_bar(batch_idx, rightnow, banner_string)
-        test_results.append(
-            (epoch, batch_idx, rightnow, loss, acc, target_batch_size))
+        test_results.append((epoch, batch_idx, rightnow, loss, acc, target_batch_size))
 
     if args.storeresults:
         with best_acc.get_lock():
             ba = best_acc.value
-            save_model(net, rightnow, args.snap_dir, epoch,
-                       top1.avg * 100 > ba)
+            save_model(net, rightnow, args.snap_dir, epoch, top1.avg * 100 > ba)
             if top1.avg > ba:
                 best_acc.value = top1.avg
 
@@ -285,12 +302,14 @@ def test_epoch(net,
 def process_test_result(results, args):
     test_results = []
     for r in results:
-        if 'testresult' in r['tag']:
-            test_results += r['val']
+        if "testresult" in r["tag"]:
+            test_results += r["val"]
     len_test_results = len(test_results) * 1.0
     maxelements = torch.tensor([len_test_results]).cuda()
     dist.all_reduce(maxelements, op=dist.ReduceOp.MAX)
-    assert len_test_results == maxelements[0].item(), "The number of \
+    assert (
+        len_test_results == maxelements[0].item()
+    ), "The number of \
         validation minibatches are not equal across the clusters"
 
     test_results.sort(key=lambda tup: (tup[0], tup[1]))
@@ -298,39 +317,46 @@ def process_test_result(results, args):
     # return
     num_test_epochs = int(max(test_results)[0])
     for i in range(num_test_epochs):
-        losses = Metric('Loss', args.commrank)
-        top1 = Metric('Acc@1', args.commrank)
+        losses = Metric("Loss", args.commrank)
+        top1 = Metric("Acc@1", args.commrank)
         for j in range(args.testloaderlength):
-            losses.update(test_results[i * args.testloaderlength + j][3],
-                          test_results[i * args.testloaderlength + j][5])
-            top1.update(test_results[i * args.testloaderlength + j][4],
-                        test_results[i * args.testloaderlength + j][5])
+            losses.update(
+                test_results[i * args.testloaderlength + j][3],
+                test_results[i * args.testloaderlength + j][5],
+            )
+            top1.update(
+                test_results[i * args.testloaderlength + j][4],
+                test_results[i * args.testloaderlength + j][5],
+            )
 
-        print("Ep: ", i + 1, " TestLoss: ", losses.avg, " TestAcc@1: ",
-              top1.avg * 100, " Time: ",
-              test_results[(i + 1) * args.testloaderlength - 1][2])
-        results.append({
-            'tag':
-            'TestLoss',
-            'ep':
+        print(
+            "Ep: ",
             i + 1,
-            'val':
+            " TestLoss: ",
             losses.avg,
-            'time':
-            test_results[(i + 1) * args.testloaderlength - 1][2]
-        })
-        results.append({
-            'tag':
-            'TestAcc@1',
-            'ep':
-            i + 1,
-            'val':
+            " TestAcc@1: ",
             top1.avg * 100,
-            'time':
-            test_results[(i + 1) * args.testloaderlength - 1][2]
-        })
+            " Time: ",
+            test_results[(i + 1) * args.testloaderlength - 1][2],
+        )
+        results.append(
+            {
+                "tag": "TestLoss",
+                "ep": i + 1,
+                "val": losses.avg,
+                "time": test_results[(i + 1) * args.testloaderlength - 1][2],
+            }
+        )
+        results.append(
+            {
+                "tag": "TestAcc@1",
+                "ep": i + 1,
+                "val": top1.avg * 100,
+                "time": test_results[(i + 1) * args.testloaderlength - 1][2],
+            }
+        )
     for r in results:
-        if 'testresult' in r['tag']:
+        if "testresult" in r["tag"]:
             results.remove(r)
     # print("Rank: ", args.commrank, "Results: ", results)
     # print(" ")
@@ -340,55 +366,62 @@ def process_test_result(results, args):
 def process_train_result(results, args):
     train_results = []
     for r in results:
-        if 'trainresult' in r['tag']:
-            train_results += r['val']
+        if "trainresult" in r["tag"]:
+            train_results += r["val"]
     len_train_results = len(train_results) * 1.0
     maxelements = torch.tensor([len_train_results]).cuda()
     dist.all_reduce(maxelements, op=dist.ReduceOp.MAX)
-    assert len_train_results == maxelements[0].item(), "The number of \
+    assert (
+        len_train_results == maxelements[0].item()
+    ), "The number of \
         validation minibatches are not equal across the clusters"
 
     train_results.sort(key=lambda tup: (tup[0]))
     # print(args.commrank, test_results)
     # return
     for i in range(args.epochs):
-        losses = Metric('Loss', args.commrank)
-        top1 = Metric('Acc@1', args.commrank)
+        losses = Metric("Loss", args.commrank)
+        top1 = Metric("Acc@1", args.commrank)
         for j in range(args.trainloaderlength):
             losses.update(
-                train_results[i * args.trainloaderlength + j][2] /
+                train_results[i * args.trainloaderlength + j][2]
+                / train_results[i * args.trainloaderlength + j][4],
                 train_results[i * args.trainloaderlength + j][4],
-                train_results[i * args.trainloaderlength + j][4])
+            )
             top1.update(
-                train_results[i * args.trainloaderlength + j][3] /
+                train_results[i * args.trainloaderlength + j][3]
+                / train_results[i * args.trainloaderlength + j][4],
                 train_results[i * args.trainloaderlength + j][4],
-                train_results[i * args.trainloaderlength + j][4])
+            )
 
-        print("Ep: ", i + 1, " TrainLoss: ", losses.avg, " TrainAcc@1: ",
-              top1.avg * 100, " Time: ",
-              train_results[(i + 1) * args.trainloaderlength - 1][1])
-        results.append({
-            'tag':
-            'TrainLoss',
-            'ep':
+        print(
+            "Ep: ",
             i + 1,
-            'val':
+            " TrainLoss: ",
             losses.avg,
-            'time':
-            train_results[(i + 1) * args.trainloaderlength - 1][1]
-        })
-        results.append({
-            'tag':
-            'TrainAcc@1',
-            'ep':
-            i + 1,
-            'val':
+            " TrainAcc@1: ",
             top1.avg * 100,
-            'time':
-            train_results[(i + 1) * args.trainloaderlength - 1][1]
-        })
+            " Time: ",
+            train_results[(i + 1) * args.trainloaderlength - 1][1],
+        )
+        results.append(
+            {
+                "tag": "TrainLoss",
+                "ep": i + 1,
+                "val": losses.avg,
+                "time": train_results[(i + 1) * args.trainloaderlength - 1][1],
+            }
+        )
+        results.append(
+            {
+                "tag": "TrainAcc@1",
+                "ep": i + 1,
+                "val": top1.avg * 100,
+                "time": train_results[(i + 1) * args.trainloaderlength - 1][1],
+            }
+        )
     for r in results:
-        if 'trainresult' in r['tag']:
+        if "trainresult" in r["tag"]:
             results.remove(r)
     # print("Rank: ", args.commrank, "Results: ", results)
     # print(" ")

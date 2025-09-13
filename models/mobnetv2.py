@@ -19,15 +19,21 @@ class LinearBottleNeck(nn.Module):
 
         self.residual = nn.Sequential(
             nn.Conv2d(in_channels, in_channels * t, 1),
-            nn.BatchNorm2d(in_channels * t), nn.ReLU6(inplace=True),
-            nn.Conv2d(in_channels * t,
-                      in_channels * t,
-                      3,
-                      stride=stride,
-                      padding=1,
-                      groups=in_channels * t), nn.BatchNorm2d(in_channels * t),
-            nn.ReLU6(inplace=True), nn.Conv2d(in_channels * t, out_channels,
-                                              1), nn.BatchNorm2d(out_channels))
+            nn.BatchNorm2d(in_channels * t),
+            nn.ReLU6(inplace=True),
+            nn.Conv2d(
+                in_channels * t,
+                in_channels * t,
+                3,
+                stride=stride,
+                padding=1,
+                groups=in_channels * t,
+            ),
+            nn.BatchNorm2d(in_channels * t),
+            nn.ReLU6(inplace=True),
+            nn.Conv2d(in_channels * t, out_channels, 1),
+            nn.BatchNorm2d(out_channels),
+        )
 
         self.stride = stride
         self.in_channels = in_channels
@@ -47,8 +53,9 @@ class MobileNetV2(nn.Module):
     def __init__(self, class_num=100):
         super().__init__()
 
-        self.pre = nn.Sequential(nn.Conv2d(3, 32, 1, padding=1),
-                                 nn.BatchNorm2d(32), nn.ReLU6(inplace=True))
+        self.pre = nn.Sequential(
+            nn.Conv2d(3, 32, 1, padding=1), nn.BatchNorm2d(32), nn.ReLU6(inplace=True)
+        )
 
         self.stage1 = LinearBottleNeck(32, 16, 1, 1)
         self.stage2 = self._make_stage(2, 16, 24, 2, 6)
@@ -58,9 +65,9 @@ class MobileNetV2(nn.Module):
         self.stage6 = self._make_stage(3, 96, 160, 1, 6)
         self.stage7 = LinearBottleNeck(160, 320, 1, 6)
 
-        self.conv1 = nn.Sequential(nn.Conv2d(320, 1280,
-                                             1), nn.BatchNorm2d(1280),
-                                   nn.ReLU6(inplace=True))
+        self.conv1 = nn.Sequential(
+            nn.Conv2d(320, 1280, 1), nn.BatchNorm2d(1280), nn.ReLU6(inplace=True)
+        )
 
         self.conv2 = nn.Conv2d(1280, class_num, 1)
 

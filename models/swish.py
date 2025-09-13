@@ -10,7 +10,7 @@ class Swish(nn.Module):
     def __init__(self, train_beta=False):
         super(Swish, self).__init__()
         if train_beta:
-            self.weight = Parameter(torch.Tensor([1.]))
+            self.weight = Parameter(torch.Tensor([1.0]))
         else:
             self.weight = 1.0
 
@@ -25,5 +25,5 @@ def test():
     print(swish(x).size())
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     test()

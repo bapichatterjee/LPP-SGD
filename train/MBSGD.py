@@ -22,14 +22,9 @@ from utilities.utils import process_train_result
 
 
 class opt(object):
-    def __init__(self,
-                 parameters,
-                 lr,
-                 momentum,
-                 weight_decay,
-                 nesterov,
-                 eta=0.001,
-                 lars=False):
+    def __init__(
+        self, parameters, lr, momentum, weight_decay, nesterov, eta=0.001, lars=False
+    ):
         self.parameters = parameters
         self.weight_decay = weight_decay
         self.momentum = momentum
@@ -56,17 +51,20 @@ class opt(object):
                 grad_norm = torch.norm(d_p)
 
                 # Compute local learning rate for this layer
-                local_lr = self.eta * weight_norm / \
-                    (grad_norm + self.weight_decay * weight_norm)
+                local_lr = (
+                    self.eta
+                    * weight_norm
+                    / (grad_norm + self.weight_decay * weight_norm)
+                )
                 actual_lr = local_lr * self.lr
                 param_state = self.state[p]
-                if 'momentum_buffer' not in param_state:
-                    buf = param_state['momentum_buffer'] = \
-                            torch.zeros_like(p.data)
+                if "momentum_buffer" not in param_state:
+                    buf = param_state["momentum_buffer"] = torch.zeros_like(p.data)
                 else:
-                    buf = param_state['momentum_buffer']
-                buf.mul_(self.momentum).add_(d_p + self.weight_decay * p.data,
-                                             alpha=actual_lr)
+                    buf = param_state["momentum_buffer"]
+                buf.mul_(self.momentum).add_(
+                    d_p + self.weight_decay * p.data, alpha=actual_lr
+                )
                 p.data.add_(-buf)
             else:
                 if self.weight_decay != 0:
@@ -74,11 +72,10 @@ class opt(object):
 
                 if self.momentum != 0:
                     param_state = self.state[p]
-                    if 'momentum_buffer' not in param_state:
-                        buf = param_state['momentum_buffer'] = torch.clone(
-                            d_p).detach()
+                    if "momentum_buffer" not in param_state:
+                        buf = param_state["momentum_buffer"] = torch.clone(d_p).detach()
                     else:
-                        buf = param_state['momentum_buffer']
+                        buf = param_state["momentum_buffer"]
                         buf.mul_(self.momentum).add_(d_p)
                     if self.nesterov:
                         d_p = d_p.add(buf, alpha=self.momentum)
@@ -88,29 +85,31 @@ class opt(object):
                 p.data.add_(d_p, alpha=-self.lr)
 
 
-def test_train(start, args, best_acc, results, trainloader, train_sampler,
-               testloader):
+def test_train(start, args, best_acc, results, trainloader, train_sampler, testloader):
     print("MBSGD Training Started at Commrank ", args.commrank)
-    dist.init_process_group(backend=args.dist_backend,
-                            init_method=args.dist_url,
-                            world_size=args.commsize,
-                            rank=args.commrank)
+    dist.init_process_group(
+        backend=args.dist_backend,
+        init_method=args.dist_url,
+        world_size=args.commsize,
+        rank=args.commrank,
+    )
     torch.set_num_threads(args.num_threads)
     net = get_model(args)
-    net = net.to('cuda')
-    net = torch.nn.parallel.DistributedDataParallel(
-        net, device_ids=[args.devicerank])
+    net = net.to("cuda")
+    net = torch.nn.parallel.DistributedDataParallel(net, device_ids=[args.devicerank])
 
     criterion = nn.CrossEntropyLoss()
-    optimizer = opt(list(net.parameters()),
-                    lr=args.baseline_lr,
-                    momentum=args.momentum,
-                    weight_decay=args.weight_decay,
-                    nesterov=args.nesterov,
-                    eta=args.eta,
-                    lars=args.lars)
+    optimizer = opt(
+        list(net.parameters()),
+        lr=args.baseline_lr,
+        momentum=args.momentum,
+        weight_decay=args.weight_decay,
+        nesterov=args.nesterov,
+        eta=args.eta,
+        lars=args.lars,
+    )
 
-    if args.scheduler_type == 'cosine':
+    if args.scheduler_type == "cosine":
         scheduler = CosineAnnealingLR(optimizer, args)
     else:
         scheduler = MultiStepLR(optimizer, args)
@@ -124,28 +123,55 @@ def test_train(start, args, best_acc, results, trainloader, train_sampler,
     while epoch < args.epochs:
         sampling_epoch = sampling_epoch_counter[0]
         sampling_epoch_counter[0] += 1
-        epoch = train_epoch(net, args, trainloader, optimizer, scheduler,
-                            criterion, sampling_epoch, results, start,
-                            minibatch_counter, train_sampler, best_acc,
-                            testloader, last_tested_at, test_results,
-                            train_results)
-    results.append({'tag': 'testresult', 'val': test_results})
-    results.append({'tag': 'trainresult', 'val': train_results})
+        epoch = train_epoch(
+            net,
+            args,
+            trainloader,
+            optimizer,
+            scheduler,
+            criterion,
+            sampling_epoch,
+            results,
+            start,
+            minibatch_counter,
+            train_sampler,
+            best_acc,
+            testloader,
+            last_tested_at,
+            test_results,
+            train_results,
+        )
+    results.append({"tag": "testresult", "val": test_results})
+    results.append({"tag": "trainresult", "val": train_results})
     print("MBSGD Training Completed at Commrank ", args.commrank)
 
 
-def train_epoch(net, args, trainloader, optimizer, scheduler, criterion,
-                sampling_epoch, results, start, minibatch_counter,
-                train_sampler, best_acc, testloader, last_tested_at,
-                test_results, train_results):
+def train_epoch(
+    net,
+    args,
+    trainloader,
+    optimizer,
+    scheduler,
+    criterion,
+    sampling_epoch,
+    results,
+    start,
+    minibatch_counter,
+    train_sampler,
+    best_acc,
+    testloader,
+    last_tested_at,
+    test_results,
+    train_results,
+):
     # print('\nEpoch: %d' % epoch)
-    losses = LocalMetric('Loss')
-    top1 = LocalMetric('Acc@1')
+    losses = LocalMetric("Loss")
+    top1 = LocalMetric("Acc@1")
     if train_sampler is not None:
         train_sampler.set_epoch(sampling_epoch)
     b = bar(args.trainloaderlength, 30)
     for batch_idx, (inputs, targets) in enumerate(trainloader):
-        inputs, targets = inputs.to('cuda'), targets.to('cuda')
+        inputs, targets = inputs.to("cuda"), targets.to("cuda")
         net.train()
         optimizer.zero_grad()
         outputs = net(inputs)
@@ -162,35 +188,51 @@ def train_epoch(net, args, trainloader, optimizer, scheduler, criterion,
         optimizer.step()
         rightnow = time.perf_counter() - start
         lr = get_current_lr(optimizer)  #
-        banner_string = 'PID: {:d},Rank: {:d}|TrEp: {:.2f}|Loss: {:.4f}|Acc: {:4.3f}% ({:.0f}/{:.0f})|LR: {:.7f}'.format(
-            os.getpid(), args.commrank, epoch, losses.avg, top1.avg * 100,
-            top1.sum, top1.count, lr)
+        banner_string = "PID: {:d},Rank: {:d}|TrEp: {:.2f}|Loss: {:.4f}|Acc: {:4.3f}% ({:.0f}/{:.0f})|LR: {:.7f}".format(
+            os.getpid(),
+            args.commrank,
+            epoch,
+            losses.avg,
+            top1.avg * 100,
+            top1.sum,
+            top1.count,
+            lr,
+        )
         b.progress_bar(batch_idx, rightnow, banner_string)
-        train_results.append((minibatches, rightnow, loss.item() * len(inputs),
-                              acc.item() * len(inputs), len(inputs)))
-        if minibatches - last_tested_at[
-                0] >= args.test_freq * args.trainloaderlength:
-            test_epoch(net, args, start, testloader, criterion, best_acc,
-                       test_results, epoch)
+        train_results.append(
+            (
+                minibatches,
+                rightnow,
+                loss.item() * len(inputs),
+                acc.item() * len(inputs),
+                len(inputs),
+            )
+        )
+        if minibatches - last_tested_at[0] >= args.test_freq * args.trainloaderlength:
+            test_epoch(
+                net, args, start, testloader, criterion, best_acc, test_results, epoch
+            )
             last_tested_at[0] = minibatches
         if epoch >= args.epochs:
-            print("Terminating at epoch ", epoch, " at commrank ",
-                  args.commrank)
+            print("Terminating at epoch ", epoch, " at commrank ", args.commrank)
             break
 
-    results.append({
-        'tag': 'LR',
-        'ep': sampling_epoch,
-        'val': lr,
-        'time': rightnow
-    })
+    results.append({"tag": "LR", "ep": sampling_epoch, "val": lr, "time": rightnow})
     return epoch
 
 
 def run(args):
     args.devicerank = args.commrank % torch.cuda.device_count()
-    print("CommRank=", args.commrank, "CommSize=", args.commsize, "DeviceRank=", \
-    args.devicerank,  args.dist_url, args.dist_backend)
+    print(
+        "CommRank=",
+        args.commrank,
+        "CommSize=",
+        args.commsize,
+        "DeviceRank=",
+        args.devicerank,
+        args.dist_url,
+        args.dist_backend,
+    )
     torch.cuda.set_device(args.devicerank)
     random.seed(args.seed)
     torch.manual_seed(args.seed)
@@ -198,20 +240,21 @@ def run(args):
     cudnn.deterministic = True
     cudnn.benchmark = False
     start = time.perf_counter()
-    best_acc = mp.Value('d', 0)
+    best_acc = mp.Value("d", 0)
     manager = mp.Manager()
     results = manager.list()
-    results.append({
-        'tag': 'LR',
-        'ep': 0,
-        'val': args.baseline_lr,
-        'time': time.perf_counter() - start
-    })
+    results.append(
+        {
+            "tag": "LR",
+            "ep": 0,
+            "val": args.baseline_lr,
+            "time": time.perf_counter() - start,
+        }
+    )
     (trainloader, train_sampler, _), (testloader, _) = get_dataloader(args)
     args.trainloaderlength = len(trainloader)
     args.testloaderlength = len(testloader)
-    test_train(start, args, best_acc, results, trainloader, train_sampler,
-               testloader)
+    test_train(start, args, best_acc, results, trainloader, train_sampler, testloader)
 
     process_test_result(results, args)
     process_train_result(results, args)

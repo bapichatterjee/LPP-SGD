@@ -34,27 +34,37 @@ class DistributedPercentageSampler(Sampler):
         >>> for epoch in range(start_epoch, n_epochs):
         ...     if is_distributed:
     """
-    def __init__(self,
-                 args,
-                 dataset,
-                 num_workers,
-                 worker_rank,
-                 masters_share=4,
-                 shuffle=True):
+
+    def __init__(
+        self, args, dataset, num_workers, worker_rank, masters_share=4, shuffle=True
+    ):
         self.dataset = dataset
         self.num_workers = num_workers
         self.worker_rank = worker_rank
         self.seed = 0
         self.num_samples = int(
             math.ceil(
-                len(self.dataset) * (args.masters_share * 1.0 - 1.0) /
-                args.masters_share * (1.0 / args.workers_per_process)))
+                len(self.dataset)
+                * (args.masters_share * 1.0 - 1.0)
+                / args.masters_share
+                * (1.0 / args.workers_per_process)
+            )
+        )
         self.masters_samples = int(
-            math.ceil(len(self.dataset) - self.num_samples * self.num_workers))
+            math.ceil(len(self.dataset) - self.num_samples * self.num_workers)
+        )
         self.total_size = self.num_samples * self.num_workers + self.masters_samples
         self.shuffle = shuffle
-        print("Commrank ", args.commrank, " MSamples ", self.masters_samples,
-              " Samples ", self.num_samples, " BS ", args.bs)
+        print(
+            "Commrank ",
+            args.commrank,
+            " MSamples ",
+            self.masters_samples,
+            " Samples ",
+            self.num_samples,
+            " BS ",
+            args.bs,
+        )
 
     def __iter__(self):
         # deterministically shuffle based on epoch
@@ -66,14 +76,13 @@ class DistributedPercentageSampler(Sampler):
             indices = list(range(len(self.dataset)))
 
         # add extra samples to make it evenly divisible
-        indices += indices[:(self.total_size - len(indices))]
+        indices += indices[: (self.total_size - len(indices))]
         assert len(indices) == self.total_size
 
         # subsample
-        masters_indices = indices[:self.masters_samples]
-        workers_indices = indices[self.masters_samples:]
-        indices = workers_indices[self.worker_rank:self.total_size:self.
-                                  num_workers]
+        masters_indices = indices[: self.masters_samples]
+        workers_indices = indices[self.masters_samples :]
+        indices = workers_indices[self.worker_rank : self.total_size : self.num_workers]
         if self.worker_rank == -1:
             assert len(masters_indices) == self.masters_samples
             return iter(masters_indices)

@@ -67,10 +67,9 @@ class Bottleneck(nn.Module):
 
     def __init__(self, in_planes, out_planes, stride=1, downsample=None):
         super(Bottleneck, self).__init__()
-        self.conv1 = nn.Conv2d(in_channels=in_planes,
-                               out_channels=out_planes,
-                               kernel_size=1,
-                               bias=False)
+        self.conv1 = nn.Conv2d(
+            in_channels=in_planes, out_channels=out_planes, kernel_size=1, bias=False
+        )
         self.bn1 = nn.BatchNorm2d(num_features=out_planes)
 
         self.conv2 = nn.Conv2d(
@@ -169,26 +168,11 @@ class ResNet_imagenet(ResNetBase):
 
         # define model param.
         model_params = {
-            18: {
-                "block": BasicBlock,
-                "layers": [2, 2, 2, 2]
-            },
-            34: {
-                "block": BasicBlock,
-                "layers": [3, 4, 6, 3]
-            },
-            50: {
-                "block": Bottleneck,
-                "layers": [3, 4, 6, 3]
-            },
-            101: {
-                "block": Bottleneck,
-                "layers": [3, 4, 23, 3]
-            },
-            152: {
-                "block": Bottleneck,
-                "layers": [3, 8, 36, 3]
-            },
+            18: {"block": BasicBlock, "layers": [2, 2, 2, 2]},
+            34: {"block": BasicBlock, "layers": [3, 4, 6, 3]},
+            50: {"block": Bottleneck, "layers": [3, 4, 6, 3]},
+            101: {"block": Bottleneck, "layers": [3, 4, 23, 3]},
+            152: {"block": Bottleneck, "layers": [3, 8, 36, 3]},
         }
         block_fn = model_params[resnet_size]["block"]
         block_nums = model_params[resnet_size]["layers"]
@@ -211,25 +195,23 @@ class ResNet_imagenet(ResNetBase):
 
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
 
-        self.layer1 = self._make_block(block_fn=block_fn,
-                                       planes=64,
-                                       block_num=block_nums[0])
-        self.layer2 = self._make_block(block_fn=block_fn,
-                                       planes=128,
-                                       block_num=block_nums[1],
-                                       stride=2)
-        self.layer3 = self._make_block(block_fn=block_fn,
-                                       planes=256,
-                                       block_num=block_nums[2],
-                                       stride=2)
-        self.layer4 = self._make_block(block_fn=block_fn,
-                                       planes=512,
-                                       block_num=block_nums[3],
-                                       stride=2)
+        self.layer1 = self._make_block(
+            block_fn=block_fn, planes=64, block_num=block_nums[0]
+        )
+        self.layer2 = self._make_block(
+            block_fn=block_fn, planes=128, block_num=block_nums[1], stride=2
+        )
+        self.layer3 = self._make_block(
+            block_fn=block_fn, planes=256, block_num=block_nums[2], stride=2
+        )
+        self.layer4 = self._make_block(
+            block_fn=block_fn, planes=512, block_num=block_nums[3], stride=2
+        )
 
         self.avgpool = nn.AvgPool2d(kernel_size=7, stride=1)
-        self.fc = nn.Linear(in_features=512 * block_fn.expansion,
-                            out_features=self.num_classes)
+        self.fc = nn.Linear(
+            in_features=512 * block_fn.expansion, out_features=self.num_classes
+        )
 
         # weight initialization based on layer type.
         self._weight_initialization()
@@ -278,21 +260,20 @@ class ResNet_cifar(ResNetBase):
         self.bn1 = nn.BatchNorm2d(num_features=16)
         self.relu = nn.ReLU(inplace=True)
 
-        self.layer1 = self._make_block(block_fn=block_fn,
-                                       planes=16,
-                                       block_num=block_nums)
-        self.layer2 = self._make_block(block_fn=block_fn,
-                                       planes=32,
-                                       block_num=block_nums,
-                                       stride=2)
-        self.layer3 = self._make_block(block_fn=block_fn,
-                                       planes=64,
-                                       block_num=block_nums,
-                                       stride=2)
+        self.layer1 = self._make_block(
+            block_fn=block_fn, planes=16, block_num=block_nums
+        )
+        self.layer2 = self._make_block(
+            block_fn=block_fn, planes=32, block_num=block_nums, stride=2
+        )
+        self.layer3 = self._make_block(
+            block_fn=block_fn, planes=64, block_num=block_nums, stride=2
+        )
 
         self.avgpool = nn.AvgPool2d(kernel_size=8)
-        self.fc = nn.Linear(in_features=64 * block_fn.expansion,
-                            out_features=self.num_classes)
+        self.fc = nn.Linear(
+            in_features=64 * block_fn.expansion, out_features=self.num_classes
+        )
 
         # weight initialization based on layer type.
         self._weight_initialization()
@@ -313,8 +294,7 @@ class ResNet_cifar(ResNetBase):
 
 
 def resnet(dataset, resnet_size):
-    """Constructs a ResNet-18 model.
-    """
+    """Constructs a ResNet-18 model."""
     if "cifar" in dataset or "svhn" in dataset:
         model = ResNet_cifar(dataset=dataset, resnet_size=resnet_size)
     elif "imagenet" in dataset:
